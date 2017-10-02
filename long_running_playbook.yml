@@ -23,5 +23,4 @@
 
   - name: This is third task
     debug:
-      msg="Last message after sleep"
-
+        msg="Last message after sleep"
