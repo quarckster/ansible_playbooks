@@ -1,29 +1,61 @@
----
-- hosts: localhost
+- name: Service Linking VM's to an existing service
+  hosts: localhost
   connection: local
-  pre_tasks:
-    # Include variables about our environment
-    - name: Include the variables specific to the environment
-      include_vars: envs/{{ environ }}.yml
-  tags: env
-  vars:
-    - ansible_ssh_user: default
-  roles:
-    - { role: prepare_cloud, tags: ['prepare_cloud'] }
-    - { role: dump_all_variables, tags: ['dump_vars'] }
-    - { role: provision-vpc, tags: ['vpc', 'subnet', 'sg', 'peer-links'] }
-    - { role: provision-ec2, tags: ['ec2'] }
-    - { role: manageiq_register, tags: ['manageiq'] }
+  gather_facts: False
 
-- hosts: new_ec2_instances
-  connection: local
-  pre_tasks:
-    # Include variables about our environment
-    - name: Include the variables specific to the environment
-      include_vars: envs/{{ environ }}.yml
+  vars:
+  - key: db
+  - name: db-test-provision-1
+  - instance_type: t2.nano
+  - security_group: sg-sdf234
+  - image: ami-234234lkj
+  - region: us-east-1
+  - subnet: subnet-adsf098
+  #- manageiq_connection:
+  #    url: 'http://localhost:3000'
+  #    username: 'admin'
+  #    password: 'smartvm'
+  #    manageiq_validate_certs: false
+
   roles:
-    #- { role: prepare_cloud, tags: ['prepare_cloud'] }
-    #- { role: dump_all_variables, tags: ['dump_vars'] }
-    #- { role: provision-vpc, tags: ['vpc', 'subnet', 'sg', 'peer-links'] }
-    #- { role: provision-ec2, tags: ['ec2'] }
-    #- { role: manageiq_register, tags: ['manageiq'] }
+  - syncrou.manageiq-vmdb
+
+  tasks:
+  - name: Get a vmdb object
+    manageiq_vmdb:
+      href: "services/{{ service_id }}"
+    register: vmdb_object
+
+  - name: Create Ec2 Instance
+    ec2:
+      key_name: "{{ key }}"
+      instance_tags: {Name: "{{ name }}"}
+      group_id: "{{ security_group }}"
+      instance_type: "{{ instance_type }}"
+      region: "{{ region }}"
+      image: "{{ image }}"
+      wait: yes
+      count: 1
+      vpc_subnet_id: "{{ subnet }}"
+      assign_public_ip: yes
+    register: ec2
+
+#  - name: Service Linking via an href slug
+#    manageiq_vmdb:
+#      href: "href_slug::services/{{ service_id }}"
+#      action: add_provider_vms
+#      data:
+#        uid_ems:
+#          - "{{ ec2.instances[0].id }}"
+#        provider:
+#          id: "{{ provider_id }}"
+
+  - name: Service Linking via an object
+    manageiq_vmdb:
+      vmdb: "{{ vmdb_object }}"
+      action: add_provider_vms
+      data:
+        uid_ems:
+          - "{{ ec2.instances[0].id }}"
+        provider:
+          id: "{{ provider_id }}"
