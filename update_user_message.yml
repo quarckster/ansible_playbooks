@@ -1,0 +1,25 @@
+---
+- name: Update miq_request user message
+  hosts: localhost
+  connection: local
+  vars:
+  - object: root
+  - manageiq_connection:
+      manageiq_validate_certs: false
+
+  gather_facts: False
+  roles:
+  - syncrou.manageiq-vmdb
+
+  tasks:
+    - name: "Update miq_request user message"
+      manageiq_vmdb:
+        href: "href_slug::requests/{{ request_id }}"
+        action: edit
+        data: 
+          options:
+            user_message: "hello from Ansible"
+      register:    result
+
+    - debug: msg="attribute result dictionary {{ result }}"
+
